@@ -232,20 +232,79 @@ def user_login():
 
 
 def deposit(user):
-    id, full_name = user
+    id, full_name,username = user
     print(f"Hello {full_name}, Let's deposit in your account.")
 
     while True:
         try:
-            deposit_amount - float(input("Enter amount you want to deposit: ").strip())
+            deposit_amount = float(input("Enter amount you want to deposit: ").strip())
             if deposit_amount <= 0: 
                 print("Error: Deposit cannot be negative or Zero")
                 continue
 
-            with 
+            with sqlite3.connect(BI_File) as conn:
+                cursor = conn.cursor()
+
+                cursor.execute("SELECT balance FROM account_balances WHERE user_id = ?", (id,))
+                current_balance = cursor.fetchone()[0]
+                new_balace = current_balance + deposit_amount
+                cursor.execute("UPDATE account_balances SET balance = ? WHERE user_id = ?",(new_balace, id))
+                conn.commit()
+            print("Processing...")
+            time.sleep(3)
+            print(f"Hi {username}...  Deposit successful! Your new balance is #{new_balace:.2f}")
+            break
+        except ValueError:
+            print("Error: Please enter a valid number.")
+        except Exception as e:
+            print(f"Something went wrong: {e}")
+            break
+
+
+def withdrawal(user):
+    id, full_name, username = user
+    print(f"Hello! {full_name}! Please wait!! Withdrawal Processing ")
+
+    while True:
+        try:
+            withdrawal_amount = float(input("Enter the amount you want to withdraw: ")).strip()
+            with sqlite3.connect(BI_File) as conn:
+                cursor = conn.cursor()
+
+                cursor.execute("SELECT balance FROM account_balance WHERE user_id = ?", (id,))
+                current_balance = cursor.fetchone()[0]
+            
+            if withdrawal_amount <= 0:
+                print("Error: Withdrawal amount can not less than 1")
+                continue
+            if withdrawal_amount > current_balance:
+                print(f"Error: Amount greater than your current balance of {current_balance}")
+                continue
+
+            with sqlite3.connect(BI_File) as conn:
+                cursor = conn.cursor()
+        
+                new_balance = current_balance - withdrawal_amount
+
+                cursor.execute("UPDATE account_balance SET balance = ? WHERE user_id = ?", (new_balance, id))
+                conn.commit()
+            print("Please wait!!! while your request is processing...")
+            time.sleep(3)
+            print(f"Hi {username}...  withdrawal of {withdrawal_amount:.2f} completed! Your new balance is #{new_balance:.2f}")
+            break
+        except ValueError:
+             print("Error: Please enter a valid number.")
+        except Exception as e:
+            print(f"Something went wrong: {e}")
+            break
+
+
+def balance(user):
+    id, full_name, username = user
+            
 
 def my_dashboard(user):
-    id, full_name = user
+    id, full_name, username = user
     print(f" Good morning {full_name}!, Welcome to your dashboard")
     time.sleep(3)
     
