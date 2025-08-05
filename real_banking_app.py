@@ -175,9 +175,9 @@ def user_registration():
                 """, (user_id, initial_deposit, datetime.now().strftime('%Y-%m-%d')))
 
                 cursor.execute("""
-                    INSERT INTO account_balances (user_id, balance)
-                    VALUES (?, ?)
-                """, (user_id, initial_deposit))
+                    INSERT INTO account_balances (user_id, full_name, balance)
+                    VALUES (?, ?, ?)
+                """, (user_id, full_name, initial_deposit))
                 conn.commit()
 
                 print("Signing up...")
