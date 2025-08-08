@@ -17,25 +17,16 @@ def set_up():
               username TEXT NOT NULL UNIQUE CHECK(username <> ''),
               password TEXT NOT NULL CHECK(password <> ''),
               initial_deposit INTEGER NOT NULL CHECK(initial_deposit <> ''),
+              balance REAL NOT NULL DEFAULT 0.00,
               account_number INTEGER NOT NULL UNIQUE CHECK(account_number <> '')                      
             );
-        """)
-
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS account_balances(
-              user_id INTEGER PRIMARY KEY,
-              full_name TEXT NOT NULL,
-              balance REAL NOT NULL CHECK(balance >= 0),
-              FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
-            );
-        
         """)
 
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS transactions(
               id INTEGER PRIMARY KEY AUTOINCREMENT,
               user_id INTEGER NOT NULL,
-              transaction_type TEXT NOT NULL CHECK(transaction_type IN ('Deposit', 'Withdrawal', 'Opening Deposit', 'Transfer')),
+              transaction_type TEXT NOT NULL CHECK(transaction_type IN ('Deposit', 'Withdrawal', 'Transfer Out',  'Transfer In')),
               amount REAL NOT NULL CHECK(amount >= 0),
               date TEXT NOT NULL,
               FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -48,8 +39,14 @@ def user_registration():
         while True:
 
             first_name = input("Enter your first name: ").strip().title()
+            if len(first_name) < 3 or len(first_name) > 20:
+                print("Error: First name must be between 3 and 20 letters")
+                continue
             middle_name = input("Enter your middle name ('Press Enter to skip'): ").strip().title()
             last_name = input("Enter Your last name: ").strip().title()
+            if len(last_name) < 3 or len(last_name) > 20:
+                print("Error: First name must be between 3 and 20 letters")
+                continue
 
             if middle_name:
                 full_name = " ".join([first_name, middle_name, last_name])
@@ -145,6 +142,17 @@ def user_registration():
                 break
             except ValueError:
                 print("Error: Please enter a valid number")
+        
+        while True:
+            
+            with sqlite3.connect(BI_File) as conn:
+                cursor = conn.cursor()
+
+            cursor.execute("Select initial_deposit FROM users WHERE username = ?", (username,)).fetchone()
+            balance = 0.00
+            balance = initial_deposit + balance
+            break
+        
 
         while True:
             with sqlite3.connect(BI_File) as conn:
@@ -153,8 +161,7 @@ def user_registration():
                     account_number = "911" + str(random.randrange(1000000, 9999999))
                     cursor.execute("SELECT account_number FROM users WHERE account_number = ?", (account_number,))
                     if not cursor.fetchone():
-                        break
-
+                        break          
             print(f"Your Account number is: {account_number}")
             break
 
@@ -162,28 +169,24 @@ def user_registration():
             cursor = conn.cursor()
             try:
                 cursor.execute("""
-                    INSERT INTO users (full_name, username, password, initial_deposit, account_number)
-                    VALUES (?, ?, ?, ?, ?)
-                """, (full_name, username, hashed_password, initial_deposit, account_number))
+                    INSERT INTO users (full_name, username, password, initial_deposit, balance, account_number)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, (full_name, username, hashed_password, initial_deposit, balance, account_number))
                 conn.commit()
 
                 user_id = cursor.lastrowid
 
                 cursor.execute("""
                  INSERT INTO transactions (user_id, transaction_type, amount, date)
-                    VALUES (?, 'Opening Deposit', ?, ?)
+                    VALUES (?, 'Deposit', ?, ?)
                 """, (user_id, initial_deposit, datetime.now().strftime('%Y-%m-%d')))
-
-                cursor.execute("""
-                    INSERT INTO account_balances (user_id, full_name, balance)
-                    VALUES (?, ?, ?)
-                """, (user_id, full_name, initial_deposit))
                 conn.commit()
 
                 print("Signing up...")
                 time.sleep(2)
                 print(f"Congratulations!{first_name} Your Registration is successful, Welcome to Linkon Bank PLC 🎠")
-                print(f"Your Username is: {username}...")
+                print(f"Your Username is: {username}")
+                print(f"Current balance (#): {balance}")
             except sqlite3.IntegrityError as e:
                 print(f"Intergrity Error : {e}")
             except Exception as e:
@@ -235,15 +238,16 @@ def user_login():
                 user = cursor.execute("""
                         SELECT id, full_name, username FROM users WHERE username = ? AND password = ?
                 """, (username, hashed_password)).fetchone()
-                if user is None:
+                if username is None:
                     print("Invalid Username or password")
-                else:
-                    print("Loggin in...")
-                    time.sleep(2)
-                    print("Get ready to experience convenient and secure banking at your fingertips.")
-                    time.sleep(2)
-                    print("Welcome to Linkon Bank PLC ⛱🎡🎠")
-                    my_dashboard(user)
+                    return
+                
+                print("Loggin in...")
+                time.sleep(2)
+                print("Get ready to experience convenient and secure banking at your fingertips.")
+                time.sleep(2)
+                print("Welcome to Linkon Bank PLC ⛱🎡🎠")
+                my_dashboard(user)
             except sqlite3.IntegrityError as e:
                 print(f"Intergrity Error : {e}")
             except Exception as e:
@@ -264,10 +268,10 @@ def deposit(user):
             with sqlite3.connect(BI_File) as conn:
                 cursor = conn.cursor()
 
-                cursor.execute("SELECT balance FROM account_balances WHERE user_id = ?", (id,))
+                cursor.execute("SELECT balance FROM users WHERE id = ?", (id,))
                 current_balance = cursor.fetchone()[0]
                 new_balace = current_balance + deposit_amount
-                cursor.execute("UPDATE account_balances SET balance = ? WHERE user_id = ?",(new_balace, id))
+                cursor.execute("UPDATE users SET balance = ? WHERE id = ?",(new_balace, id))
 
                 cursor.execute("""
                     INSERT INTO transactions (user_id, transaction_type, amount, date)
@@ -295,7 +299,7 @@ def withdrawal(user):
             with sqlite3.connect(BI_File) as conn:
                 cursor = conn.cursor()
 
-                cursor.execute("SELECT balance FROM account_balances WHERE user_id = ?", (id,))
+                cursor.execute("SELECT balance FROM users WHERE id = ?", (id,))
                 current_balance = cursor.fetchone()[0]
             
                 if withdrawal_amount <= 0:
@@ -310,7 +314,7 @@ def withdrawal(user):
         
                 new_balance = current_balance - withdrawal_amount
 
-                cursor.execute("UPDATE account_balances SET balance = ? WHERE user_id = ?", (new_balance, id))
+                cursor.execute("UPDATE users SET balance = ? WHERE id = ?", (new_balance, id))
 
                 cursor.execute("""
                     INSERT INTO transactions (user_id, transaction_type, amount, date)
@@ -343,7 +347,7 @@ def balance(user):
             with sqlite3.connect(BI_File) as conn:
                 cursor = conn.cursor()
 
-                cursor.execute("SELECT balance FROM account_balances WHERE user_id = ?", (id,))
+                cursor.execute("SELECT balance FROM users WHERE id = ?", (id,))
                 current_balance = cursor.fetchone()[0]
             print("Please wait while your request is processing...")
             time.sleep(3)
@@ -379,12 +383,12 @@ def transaction_history(user):
 
             print(f"Transaction History for {full_name}:")
             print("-" * 50)
-            print(f"{'Type'}            {'Amount(#)'}          {'Date'}")
+            print(f"{'Type'}               {'Amount(#)'}              {'Date'}")
             print("-" * 50)
 
             for transaction in transactions:
                 transaction_type, amount, date = transaction
-                print(f"{transaction_type}          {amount:.2f}        {date}")
+                print(f"{transaction_type}               {amount:.2f}             {date}")
             print("-" * 50)
     except ValueError:
             print("Error: Please enter a valid number.")
@@ -430,7 +434,7 @@ def transfer(user):
                     continue
              
 
-                cursor.execute("SELECT balance FROM account_balances WHERE user_id = ?", (id,))
+                cursor.execute("SELECT balance FROM users WHERE id = ?", (id,))
                 current_balance = cursor.fetchone()[0]
                 
                 if transfer_amount > current_balance:
@@ -438,25 +442,26 @@ def transfer(user):
                     continue
                 
                 new_balance =  current_balance - transfer_amount
-                cursor.execute("UPDATE account_balances SET balance = ? WHERE user_id = ?", (new_balance, id))
+                cursor.execute("UPDATE users SET balance = ? WHERE id = ?", (new_balance, id))
 
 
-                cursor.execute("SELECT balance FROM account_balances WHERE user_id = ?", (recipient_id,))
+                cursor.execute("SELECT balance FROM users WHERE id = ?", (recipient_id,))
                 recipient_balance = cursor.fetchone()[0]
                 
                 new_balance = transfer_amount + recipient_balance
 
-                cursor.execute("UPDATE account_balances SET balance = ? WHERE user_id = ?", (new_balance, recipient_id))
-            
+                cursor.execute("UPDATE users SET balance = ? WHERE id = ?", (new_balance, recipient_id))
 
-                cursor.execute("""
-                    INSERT INTO transactions (user_id, transaction_type, amount, date)
-                    VALUES (?, 'Transfer', ?, ?)
-                """, (id, transfer_amount, datetime.now().strftime('%Y-%m-%d')))
                 
                 cursor.execute("""
                     INSERT INTO transactions (user_id, transaction_type, amount, date)
-                    VALUES (?, 'Deposit', ?, ?)
+                    VALUES (?, 'Transfer Out', ?, ?)
+                """, (id, transfer_amount, datetime.now().strftime('%Y-%m-%d')))
+                
+                
+                cursor.execute("""
+                    INSERT INTO transactions (user_id, transaction_type, amount, date)
+                    VALUES (?, 'Transfer In', ?, ?)
                 """, (recipient_id, transfer_amount, datetime.now().strftime('%Y-%m-%d')))
                 conn.commit()
             print("Transfer Processing...")
