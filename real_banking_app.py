@@ -42,6 +42,7 @@ def user_registration():
             if len(first_name) < 3 or len(first_name) > 20:
                 print("Error: First name must be between 3 and 20 letters")
                 continue
+
             middle_name = input("Enter your middle name ('Press Enter to skip'): ").strip().title()
             last_name = input("Enter Your last name: ").strip().title()
             if len(last_name) < 3 or len(last_name) > 20:
@@ -58,6 +59,10 @@ def user_registration():
                 continue
             if len(full_name) < 4 or len(full_name) > 255:
                 print("Error: Full name must be between 4 and 255 characters.")
+                continue
+
+            if  "[!@#$%^&*(),.?\":{}|<>]" in full_name:
+                print("Error: full_name must not contain any special character")
                 continue
             break
 
@@ -98,7 +103,7 @@ def user_registration():
                 print("Error: Password must contain at least one number")
                 continue
             if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
-                print("Error: Password must contain at least on special character")
+                print("Error: Password must contain at least one special character")
                 continue
             
             confirm_password = getpass("Confirm your password: ").strip()
